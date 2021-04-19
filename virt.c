@@ -49,7 +49,6 @@ static const MemMapEntry virt_memmap[] = {
     [VIRT_CLINT] =       {  0x2000000,       0x10000 },
     [VIRT_PLIC] =        {  0xc000000, VIRT_PLIC_SIZE(VIRT_CPUS_MAX * 2) },
     [VIRT_UART0] =       { 0x10000000,         0x100 },
-    //[VIRT_VIRTIO] =      { 0x10001000,        0x1000 },
     [VIRT_DRAM] =        { 0x80000000,           0x0 },
 };
 
@@ -75,7 +74,6 @@ static void create_fdt(RISCVVirtState *s, const MemMapEntry *memmap,
     uint32_t plic_phandle[MAX_NODES];
     uint32_t cpu_phandle, intc_phandle;
     uint32_t phandle = 1, plic_mmio_phandle = 1;
-    //uint32_t plic_virtio_phandle = 1;
     char *mem_name, *cpu_name, *core_name, *intc_name;
     char *name, *clint_name, *plic_name, *clust_name;
 
@@ -218,28 +216,10 @@ static void create_fdt(RISCVVirtState *s, const MemMapEntry *memmap,
     for (socket = 0; socket < riscv_socket_count(mc); socket++) {
         if (socket == 0) {
             plic_mmio_phandle = plic_phandle[socket];
-            //plic_virtio_phandle = plic_phandle[socket];
-        }
-        if (socket == 1) {
-            //plic_virtio_phandle = plic_phandle[socket];
         }
     }
 
     riscv_socket_fdt_write_distance_matrix(mc, fdt);
-
-    //for (i = 0; i < VIRTIO_COUNT; i++) {
-    //    name = g_strdup_printf("/soc/virtio_mmio@%lx",
-    //        (long)(memmap[VIRT_VIRTIO].base + i * memmap[VIRT_VIRTIO].size));
-    //    qemu_fdt_add_subnode(fdt, name);
-    //    qemu_fdt_setprop_string(fdt, name, "compatible", "virtio,mmio");
-    //    qemu_fdt_setprop_cells(fdt, name, "reg",
-    //        0x0, memmap[VIRT_VIRTIO].base + i * memmap[VIRT_VIRTIO].size,
-    //        0x0, memmap[VIRT_VIRTIO].size);
-    //    qemu_fdt_setprop_cell(fdt, name, "interrupt-parent",
-    //        plic_virtio_phandle);
-    //    qemu_fdt_setprop_cell(fdt, name, "interrupts", VIRTIO_IRQ + i);
-    //    g_free(name);
-    //}
 
     name = g_strdup_printf("/soc/uart@%lx", (long)memmap[VIRT_UART0].base);
     qemu_fdt_add_subnode(fdt, name);
@@ -274,7 +254,7 @@ static void virt_machine_init(MachineState *machine)
     target_ulong firmware_end_addr, kernel_start_addr;
     uint32_t fdt_load_addr;
     uint64_t kernel_entry;
-    DeviceState *mmio_plic;//, *virtio_plic;
+    DeviceState *mmio_plic;
     int i, j, base_hartid, hart_count;
 
     /* Check socket count limit */
@@ -285,7 +265,6 @@ static void virt_machine_init(MachineState *machine)
     }
 
     /* Initialize sockets */
-    //mmio_plic = virtio_plic = NULL;
     mmio_plic = NULL;
     for (i = 0; i < riscv_socket_count(machine); i++) {
         if (!riscv_socket_check_hartids(machine, i)) {
@@ -355,10 +334,6 @@ static void virt_machine_init(MachineState *machine)
         /* Try to use different PLIC instance based device type */
         if (i == 0) {
             mmio_plic = s->plic[i];
-            //virtio_plic = s->plic[i];
-        }
-        if (i == 1) {
-            //virtio_plic = s->plic[i];
         }
     }
 
@@ -431,13 +406,6 @@ static void virt_machine_init(MachineState *machine)
                               virt_memmap[VIRT_MROM].base,
                               virt_memmap[VIRT_MROM].size, kernel_entry,
                               fdt_load_addr, machine->fdt);
-
-    /* VirtIO MMIO devices */
-    //for (i = 0; i < VIRTIO_COUNT; i++) {
-    //    sysbus_create_simple("virtio-mmio",
-    //        memmap[VIRT_VIRTIO].base + i * memmap[VIRT_VIRTIO].size,
-    //        qdev_get_gpio_in(DEVICE(virtio_plic), VIRTIO_IRQ + i));
-    //}
 
    serial_mm_init(system_memory, memmap[VIRT_UART0].base,
         0, qdev_get_gpio_in(DEVICE(mmio_plic), UART0_IRQ), 399193,
